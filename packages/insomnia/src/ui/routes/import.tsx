@@ -80,6 +80,7 @@ export const scanForResourcesAction: ActionFunction = async ({ request }): Promi
         contentList.push({
           contentStr: await fetchImportContentFromURI({ uri }),
           oriFileName: path.basename(filePath),
+          oriFilePath: filePath,
         });
       }
     } else {

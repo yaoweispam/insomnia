@@ -1,3 +1,7 @@
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+
+import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
 import {
   findWSDLForServiceName,
   getJsonForWSDL,
@@ -95,14 +99,15 @@ const convertWsdlToPostman = async (input: string) => {
 
 export const convert: Converter = async rawData => {
   try {
-    if (rawData.indexOf('wsdl:definition') !== -1) {
-      const postmanData = await convertWsdlToPostman(
-        `<?xml version="1.0" encoding="UTF-8" ?>${rawData}`,
-      );
-      postmanData.info.schema += 'collection.json';
-      const postmanJson = JSON.stringify(postmanData);
-      return postman.convert(postmanJson);
+    if (!verifyWsdl(rawData)) {
+      return null;
     }
+    const postmanData = await convertWsdlToPostman(
+      `<?xml version="1.0" encoding="UTF-8" ?>${rawData}`,
+    );
+    postmanData.info.schema += 'collection.json';
+    const postmanJson = JSON.stringify(postmanData);
+    return postman.convert(postmanJson);
   } catch (error) {
     console.error(error);
     // Nothing
@@ -110,3 +115,97 @@ export const convert: Converter = async rawData => {
 
   return null;
 };
+
+const xmlSchemaNamespaceUri = 'http://www.w3.org/2001/XMLSchema';
+const wsdlNamespaceUri = 'http://schemas.xmlsoap.org/wsdl/';
+
+function verifyWsdl(fileContent: string) {
+  try {
+    const mainWsdlDocument = new DOMParser().parseFromString(fileContent, 'text/xml');
+    return mainWsdlDocument.documentElement.namespaceURI === wsdlNamespaceUri &&
+      mainWsdlDocument.documentElement.localName === 'definitions';
+  } catch (error) {
+    return false;
+  }
+}
+
+function isXmlSchemaElement(element: Element) {
+  return element.namespaceURI === xmlSchemaNamespaceUri && element.localName === 'schema';
+}
+
+async function recurseXmlSchema(xsdFilePath: string, onTrackSet: Set<string>, needToVerifyXmlSchema = true) {
+  if (onTrackSet.has(xsdFilePath)) {
+    return null;
+  }
+  const fileContent = await readFile(xsdFilePath, 'utf-8');
+  const xsdDocument = new DOMParser().parseFromString(fileContent, 'text/xml');
+  if (needToVerifyXmlSchema) {
+    if (
+      !isXmlSchemaElement(xsdDocument.documentElement)
+    ) {
+      return null;
+    }
+  }
+
+  onTrackSet.add(xsdFilePath);
+
+  try {
+    // find all import and include tags
+    const referenceElements = [
+      ...Array.from(xsdDocument.getElementsByTagNameNS(xmlSchemaNamespaceUri, 'import')),
+      ...Array.from(xsdDocument.getElementsByTagNameNS(xmlSchemaNamespaceUri, 'include')),
+    ];
+    if (referenceElements.length === 0) {
+      onTrackSet.delete(xsdFilePath);
+      return xsdDocument.documentElement;
+    } else {
+      for (const referenceElement of referenceElements) {
+        const schemaLocation = referenceElement.getAttribute('schemaLocation');
+        if (!schemaLocation) {
+          continue;
+        }
+        // only handle relative paths that exist
+        const absolutePath = path.resolve(path.dirname(xsdFilePath), schemaLocation);
+        try {
+          // assure that the file exists
+          await readFile(absolutePath, 'utf-8');
+          const childElement = await recurseXmlSchema(absolutePath, onTrackSet);
+          if (!childElement) {
+            continue;
+          }
+          const parentElementOfReferenceElement = referenceElement.parentNode;
+          parentElementOfReferenceElement?.replaceChild(childElement, referenceElement);
+          // remove nested schema element
+          if (parentElementOfReferenceElement && isXmlSchemaElement(parentElementOfReferenceElement as Element)) {
+            parentElementOfReferenceElement.parentNode?.replaceChild(childElement, parentElementOfReferenceElement);
+          }
+        } catch (error) {
+          continue;
+        }
+      }
+      onTrackSet.delete(xsdFilePath);
+      return xsdDocument.documentElement;
+    }
+  } catch (error) {
+    onTrackSet.delete(xsdFilePath);
+    return null;
+  }
+}
+
+// Merge all referenced xml schema files into the main wsdl file
+export async function flattenWsdl(mainFileContent: string, mainFilePath: string) {
+  if (!verifyWsdl(mainFileContent)) {
+    throw new Error('Invalid WSDL file');
+  }
+
+  // keep track of all on track filepaths to avoid circular references
+  const onTrackSet = new Set<string>();
+
+  const documentElement = await recurseXmlSchema(mainFilePath, onTrackSet, false);
+
+  if (documentElement && documentElement.ownerDocument) {
+    return new XMLSerializer().serializeToString(documentElement.ownerDocument);
+  } else {
+    throw new Error('Cannot flatten WSDL');
+  }
+}
