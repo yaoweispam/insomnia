@@ -63,6 +63,7 @@ import {
 import { isRequestGroup, isRequestGroupId, type RequestGroup } from '../../models/request-group';
 import type { RequestGroupMeta } from '../../models/request-group-meta';
 import { getByParentId as getRequestMetaByParentId } from '../../models/request-meta';
+import { isSocketIORequest, isSocketIORequestId, type SocketIORequest } from '../../models/socket-io-request';
 import {
   isWebSocketRequest,
   isWebSocketRequestId,
@@ -184,7 +185,7 @@ const EventStreamSpinner = ({ requestId }: { requestId: string }) => {
   return readyState ? <div className='flex-shrink-0 bg-[--color-success] mr-[--padding-sm] w-2.5 h-2.5 rounded-full' data-testid="EventStreamSpinner__Connected" /> : null;
 };
 
-const getRequestNameOrFallback = (doc: Request | RequestGroup | GrpcRequest | WebSocketRequest): string => {
+const getRequestNameOrFallback = (doc: Request | RequestGroup | GrpcRequest | WebSocketRequest | SocketIORequest): string => {
   return !isRequestGroup(doc) ? doc.name || doc.url || 'Untitled request' : doc.name || 'Untitled folder';
 };
 
@@ -676,7 +677,18 @@ export const Debug: FC = () => {
                 requestType: 'WebSocket',
                 parentId: workspaceId,
               }),
-          }],
+          },
+          {
+            id: 'Socket.IO Request',
+            name: 'Socket.IO Request',
+            icon: 'plus-circle',
+            action: () =>
+              createRequest({
+                requestType: 'SocketIO',
+                parentId: workspaceId,
+              }),
+          },
+        ],
       },
       {
         name: 'Import',
@@ -1025,6 +1037,11 @@ export const Debug: FC = () => {
                           WS
                         </span>
                       )}
+                      {isSocketIORequest(item.doc) && (
+                        <span className="w-10 flex-shrink-0 flex text-[0.65rem] rounded-sm border border-solid border-[--hl-sm] items-center justify-center text-[--color-font-notice] bg-[rgba(var(--color-notice-rgb),0.5)]">
+                          IO
+                        </span>
+                      )}
                       {isGrpcRequest(item.doc) && (
                         <span className="w-10 flex-shrink-0 flex text-[0.65rem] rounded-sm border border-solid border-[--hl-sm] items-center justify-center text-[--color-font-info] bg-[rgba(var(--color-info-rgb),0.5)]">
                           gRPC
@@ -1175,6 +1192,9 @@ export const Debug: FC = () => {
                         {isWebSocketRequestId(requestId) && (
                           <WebSocketRequestPane environment={activeEnvironment} />
                         )}
+                        {isSocketIORequestId(requestId) && (
+                          <>Socket.IO</>
+                        )}
                         {isRequestId(requestId) && (
                           <RequestPane
                             environmentId={activeEnvironment ? activeEnvironment._id : ''}
@@ -1324,6 +1344,11 @@ const CollectionGridListItem = ({
             WS
           </span>
         )}
+        {isSocketIORequest(item.doc) && (
+          <span aria-hidden role="presentation" className="w-10 flex-shrink-0 flex text-[0.65rem] rounded-sm border border-solid border-[--hl-sm] items-center justify-center text-[--color-font-notice] bg-[rgba(var(--color-notice-rgb),0.5)]">
+            IO
+          </span>
+        )}
         {isGrpcRequest(item.doc) && (
           <span aria-hidden role="presentation" className="w-10 flex-shrink-0 flex text-[0.65rem] rounded-sm border border-solid border-[--hl-sm] items-center justify-center text-[--color-font-info] bg-[rgba(var(--color-info-rgb),0.5)]">
             gRPC
@@ -1353,6 +1378,7 @@ const CollectionGridListItem = ({
           }}
         />
         {isWebSocketRequest(item.doc) && <WebSocketSpinner requestId={item.doc._id} />}
+        {/* {isSocketIORequest(item.doc) && <SocketIOSpinner requestId={item.doc._id} />} */}
         {isGraphqlSubscriptionRequest(item.doc) && <WebSocketSpinner requestId={item.doc._id} />}
         {isRequest(item.doc) && <RequestTiming requestId={item.doc._id} />}
         {isEventStreamRequest(item.doc) && <EventStreamSpinner requestId={item.doc._id} />}

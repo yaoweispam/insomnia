@@ -8,6 +8,7 @@ import * as models from '../models';
 import type { GrpcRequest } from '../models/grpc-request';
 import type { Request } from '../models/request';
 import type { RequestGroup } from '../models/request-group';
+import type { SocketIORequest } from '../models/socket-io-request';
 import type { WebSocketRequest } from '../models/websocket-request';
 import type { Workspace } from '../models/workspace';
 import type { PluginTemplateTag } from '../templating/extensions/index';
@@ -60,7 +61,7 @@ export interface RequestAction extends InternalProperties {
     context: Record<string, any>,
     models: {
       requestGroup?: RequestGroup;
-      request: Request | GrpcRequest | WebSocketRequest;
+      request: Request | GrpcRequest | WebSocketRequest | SocketIORequest;
     },
   ) => void | Promise<void>;
   label: string;
