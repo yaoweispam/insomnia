@@ -1,7 +1,4 @@
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
-
-import { DOMParser, XMLSerializer } from '@xmldom/xmldom';
+import { DOMParser } from '@xmldom/xmldom';
 import {
   findWSDLForServiceName,
   getJsonForWSDL,
@@ -10,12 +7,13 @@ import {
   type Swagger,
 } from 'apiconnect-wsdl';
 
-import type { Converter } from '../entities';
+import type { FilePathConverter } from '../entities';
 import * as postman from './postman';
 
 export const id = 'wsdl';
 export const name = 'WSDL';
 export const description = 'Importer for WSDL files';
+export const acceptFilePath = true;
 
 const pathToSwagger = (swagger: any, path: string[]) => {
   return path.reduce((acc, v: string) => {
@@ -85,6 +83,7 @@ const convertToPostman = (items: Swagger[]) => {
   };
 };
 
+// input can be a file path or a file content string
 const convertWsdlToPostman = async (input: string) => {
   const wsdls = await getJsonForWSDL(input);
   const { services } = getWSDLServices(wsdls);
@@ -97,13 +96,21 @@ const convertWsdlToPostman = async (input: string) => {
   return convertToPostman(items);
 };
 
-export const convert: Converter = async rawData => {
+export const convert: FilePathConverter = async importEntry => {
+  const rawData = importEntry.contentStr;
   try {
     if (!verifyWsdl(rawData)) {
       return null;
     }
+    let input;
+    if (importEntry.oriFilePath) {
+      // here we prioritize using the original file path because the apiconnect-wsdl library can recognize 'import', 'include' tags in a wsdl file and find the referenced xsd files automatically.
+      input = importEntry.oriFilePath;
+    } else {
+      input = `<?xml version="1.0" encoding="UTF-8" ?>${rawData}`;
+    }
     const postmanData = await convertWsdlToPostman(
-      `<?xml version="1.0" encoding="UTF-8" ?>${rawData}`,
+      input,
     );
     postmanData.info.schema += 'collection.json';
     const postmanJson = JSON.stringify(postmanData);
@@ -116,7 +123,6 @@ export const convert: Converter = async rawData => {
   return null;
 };
 
-const xmlSchemaNamespaceUri = 'http://www.w3.org/2001/XMLSchema';
 const wsdlNamespaceUri = 'http://schemas.xmlsoap.org/wsdl/';
 
 function verifyWsdl(fileContent: string) {
@@ -126,86 +132,5 @@ function verifyWsdl(fileContent: string) {
       mainWsdlDocument.documentElement.localName === 'definitions';
   } catch (error) {
     return false;
-  }
-}
-
-function isXmlSchemaElement(element: Element) {
-  return element.namespaceURI === xmlSchemaNamespaceUri && element.localName === 'schema';
-}
-
-async function recurseXmlSchema(xsdFilePath: string, onTrackSet: Set<string>, needToVerifyXmlSchema = true) {
-  if (onTrackSet.has(xsdFilePath)) {
-    return null;
-  }
-  const fileContent = await readFile(xsdFilePath, 'utf-8');
-  const xsdDocument = new DOMParser().parseFromString(fileContent, 'text/xml');
-  if (needToVerifyXmlSchema) {
-    if (
-      !isXmlSchemaElement(xsdDocument.documentElement)
-    ) {
-      return null;
-    }
-  }
-
-  onTrackSet.add(xsdFilePath);
-
-  try {
-    // find all import and include tags
-    const referenceElements = [
-      ...Array.from(xsdDocument.getElementsByTagNameNS(xmlSchemaNamespaceUri, 'import')),
-      ...Array.from(xsdDocument.getElementsByTagNameNS(xmlSchemaNamespaceUri, 'include')),
-    ];
-    if (referenceElements.length === 0) {
-      onTrackSet.delete(xsdFilePath);
-      return xsdDocument.documentElement;
-    } else {
-      for (const referenceElement of referenceElements) {
-        const schemaLocation = referenceElement.getAttribute('schemaLocation');
-        if (!schemaLocation) {
-          continue;
-        }
-        // only handle relative paths that exist
-        const absolutePath = path.resolve(path.dirname(xsdFilePath), schemaLocation);
-        try {
-          // assure that the file exists
-          await readFile(absolutePath, 'utf-8');
-          const childElement = await recurseXmlSchema(absolutePath, onTrackSet);
-          if (!childElement) {
-            continue;
-          }
-          const parentElementOfReferenceElement = referenceElement.parentNode;
-          parentElementOfReferenceElement?.replaceChild(childElement, referenceElement);
-          // remove nested schema element
-          if (parentElementOfReferenceElement && isXmlSchemaElement(parentElementOfReferenceElement as Element)) {
-            parentElementOfReferenceElement.parentNode?.replaceChild(childElement, parentElementOfReferenceElement);
-          }
-        } catch (error) {
-          continue;
-        }
-      }
-      onTrackSet.delete(xsdFilePath);
-      return xsdDocument.documentElement;
-    }
-  } catch (error) {
-    onTrackSet.delete(xsdFilePath);
-    return null;
-  }
-}
-
-// Merge all referenced xml schema files into the main wsdl file
-export async function flattenWsdl(mainFileContent: string, mainFilePath: string) {
-  if (!verifyWsdl(mainFileContent)) {
-    throw new Error('Invalid WSDL file');
-  }
-
-  // keep track of all on track filepaths to avoid circular references
-  const onTrackSet = new Set<string>();
-
-  const documentElement = await recurseXmlSchema(mainFilePath, onTrackSet, false);
-
-  if (documentElement && documentElement.ownerDocument) {
-    return new XMLSerializer().serializeToString(documentElement.ownerDocument);
-  } else {
-    throw new Error('Cannot flatten WSDL');
   }
 }

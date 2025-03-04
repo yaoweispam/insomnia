@@ -3,8 +3,9 @@ import path from 'node:path';
 import type { ActionFunction } from 'react-router-dom';
 
 import type { PostmanDataDumpRawData } from '../../common/import';
-import { fetchImportContentFromURI, getFilesFromPostmanExportedDataDump, type ImportFileDetail, importResourcesToProject, importResourcesToWorkspace, scanResources, type ScanResult } from '../../common/import';
+import { fetchImportContentFromURI, getFilesFromPostmanExportedDataDump, importResourcesToProject, importResourcesToWorkspace, scanResources, type ScanResult } from '../../common/import';
 import * as models from '../../models';
+import type { ImportEntry } from '../../utils/importers/entities';
 import { invariant } from '../../utils/invariant';
 
 export const scanForResourcesAction: ActionFunction = async ({ request }): Promise<ScanResult[]> => {
@@ -15,7 +16,7 @@ export const scanForResourcesAction: ActionFunction = async ({ request }): Promi
     invariant(typeof source === 'string', 'Source is required.');
     invariant(['file', 'uri', 'clipboard'].includes(source), 'Unsupported import type');
 
-    const contentList: ImportFileDetail[] = [];
+    const contentList: ImportEntry[] = [];
     if (source === 'uri') {
       const uri = formData.get('uri');
       if (typeof uri !== 'string' || uri === '') {
@@ -62,7 +63,7 @@ export const scanForResourcesAction: ActionFunction = async ({ request }): Promi
         function trans({
           contentStr,
           oriFileName,
-        }: ImportFileDetail): ImportFileDetail {
+        }: ImportEntry): ImportEntry {
           return {
             contentStr,
             oriFileName: `${oriFileName} in ${path.basename(zipFilePath)}`,

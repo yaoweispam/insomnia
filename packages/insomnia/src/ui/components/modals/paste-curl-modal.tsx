@@ -17,7 +17,9 @@ export const PasteCurlModal = ({ onHide, onImport, defaultValue }: ModalProps & 
   useEffect(() => {
     async function parseCurlToRequest() {
       try {
-        const { data } = await convert(defaultValue || '');
+        const { data } = await convert({
+          contentStr: defaultValue || '',
+        });
         const { resources } = data;
         const importedRequest = resources[0];
         setIsValid(true);
@@ -52,7 +54,9 @@ export const PasteCurlModal = ({ onHide, onImport, defaultValue }: ModalProps & 
                 return;
               }
               try {
-                const { data } = await convert(value);
+                const { data } = await convert({
+                  contentStr: value,
+                });
                 const { resources } = data;
                 const importedRequest = resources[0];
                 setIsValid(true);
