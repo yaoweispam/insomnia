@@ -121,6 +121,7 @@ import {
 import type {
   GrpcRequestLoaderData,
   RequestLoaderData,
+  SocketIORequestLoaderData,
   WebSocketRequestLoaderData,
 } from './request';
 import type { RequestGroupLoaderData } from './request-group';
@@ -210,6 +211,7 @@ export const Debug: FC = () => {
     | RequestLoaderData
     | GrpcRequestLoaderData
     | WebSocketRequestLoaderData
+  | SocketIORequestLoaderData
     | undefined;
   const { activeRequest } = requestData || {};
   const requestFetcher = useFetcher();
@@ -462,7 +464,7 @@ export const Debug: FC = () => {
 
   const isRealtimeRequest =
     activeRequest &&
-    (isWebSocketRequest(activeRequest) || isEventStreamRequest(activeRequest) || isGraphqlSubscriptionRequest(activeRequest));
+    (isWebSocketRequest(activeRequest) || isEventStreamRequest(activeRequest) || isGraphqlSubscriptionRequest(activeRequest) || isSocketIORequest(activeRequest));
 
   const [searchParams, setSearchParams] = useSearchParams();
 
