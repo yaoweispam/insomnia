@@ -5,6 +5,7 @@ import { database as db } from '../../common/database';
 import * as models from '../../models';
 import { PATH_PARAMETER_REGEX, type Request, type RequestAuthentication, type RequestParameter } from '../../models/request';
 import { isRequestGroup, type RequestGroup } from '../../models/request-group';
+import type { SocketIORequest } from '../../models/socket-io-request';
 import type { WebSocketRequest } from '../../models/websocket-request';
 import { getAuthObjectOrNull, isAuthEnabled } from '../../network/authentication';
 import { getOrInheritAuthentication } from '../../network/network';
@@ -13,7 +14,7 @@ import { useNunjucks } from '../context/nunjucks/use-nunjucks';
 import { CopyButton } from './base/copy-button';
 
 interface Props {
-  request: Request | WebSocketRequest;
+  request: Request | WebSocketRequest | SocketIORequest;
 }
 
 const defaultPreview = '...';
@@ -24,14 +25,14 @@ const addApiKeyToParams = (requestAuth: RequestAuthentication) => {
     [{ name: requestAuth.key, value: requestAuth.value }] : [];
 };
 
-async function getQueryParamsFromAuth(request: Request | WebSocketRequest): Promise<RequestParameter[]> {
+async function getQueryParamsFromAuth(request: Request | WebSocketRequest | SocketIORequest): Promise<RequestParameter[]> {
   const requestAuth = getAuthObjectOrNull(request.authentication);
   const hasAuthSetOnRequest = requestAuth !== null && isAuthEnabled(request.authentication);
   if (hasAuthSetOnRequest) {
     return addApiKeyToParams(requestAuth);
   }
 
-  const ancestors = await db.withAncestors<Request | WebSocketRequest | RequestGroup>(request, [
+  const ancestors = await db.withAncestors<Request | WebSocketRequest | SocketIORequest | RequestGroup>(request, [
     models.requestGroup.type,
   ]);
   const requestGroups = ancestors.filter(isRequestGroup);

@@ -8,6 +8,7 @@ import type { GrpcRequest, GrpcRequestBody } from '../models/grpc-request';
 import { isProject, type Project } from '../models/project';
 import { PATH_PARAMETER_REGEX, type Request } from '../models/request';
 import { isRequestGroup, type RequestGroup } from '../models/request-group';
+import type { SocketIORequest } from '../models/socket-io-request';
 import type { WebSocketRequest } from '../models/websocket-request';
 import { isWorkspace, type Workspace } from '../models/workspace';
 import { getOrInheritAuthentication, getOrInheritHeaders } from '../network/network';
@@ -403,7 +404,7 @@ export async function render<T>(
   return renderResult;
 }
 
-interface RenderRequest<T extends Request | GrpcRequest | WebSocketRequest> {
+interface RenderRequest<T extends Request | GrpcRequest | WebSocketRequest | SocketIORequest> {
   request: T;
 }
 
@@ -419,7 +420,7 @@ interface BaseRenderContextOptions {
   ignoreUndefinedEnvVariable?: boolean;
 }
 
-export interface RenderContextOptions extends BaseRenderContextOptions, Partial<RenderRequest<Request | GrpcRequest | WebSocketRequest>> {
+export interface RenderContextOptions extends BaseRenderContextOptions, Partial<RenderRequest<Request | GrpcRequest | WebSocketRequest | SocketIORequest>> {
   ancestors?: RenderContextAncestor[];
 }
 export async function getRenderContext(
@@ -781,8 +782,8 @@ function _getOrderedEnvironmentKeys(finalRenderContext: Record<string, any>): st
   });
 }
 
-type RenderContextAncestor = Request | GrpcRequest | WebSocketRequest | RequestGroup | Workspace | Project;
-export async function getRenderContextAncestors(base?: Request | GrpcRequest | WebSocketRequest | Workspace): Promise<RenderContextAncestor[]> {
+type RenderContextAncestor = Request | GrpcRequest | WebSocketRequest | SocketIORequest | RequestGroup | Workspace | Project;
+export async function getRenderContextAncestors(base?: Request | GrpcRequest | WebSocketRequest | SocketIORequest | Workspace): Promise<RenderContextAncestor[]> {
   return await db.withAncestors<RenderContextAncestor>(base || null, [
     models.request.type,
     models.grpcRequest.type,
