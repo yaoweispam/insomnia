@@ -119,7 +119,7 @@ export const displayModifierKey = (key: keyof Omit<KeyCombination, 'keyCode'>) =
 // Update
 export enum UpdateURL {
   mac = 'https://updates.insomnia.rest/builds/check/mac',
-  windows = 'https://updates.insomnia.rest/updates/win',
+  windows = 'https://updates.insomnia.rest/updates/win/RELEASES',
 }
 
 // API
