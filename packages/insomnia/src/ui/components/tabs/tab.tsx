@@ -1,3 +1,4 @@
+import classNames from 'classnames';
 import React, { useCallback } from 'react';
 import { Button, GridListItem } from 'react-aria-components';
 
@@ -22,6 +23,7 @@ export interface BaseTab {
   // method is used to display the tag color
   tag?: string;
   method?: string;
+  temporary?: boolean;
 };
 
 const REQUEST_METHOD_STYLE_MAP: Record<string, string> = {
@@ -121,6 +123,14 @@ export const InsomniaTab = ({ tab }: { tab: BaseTab }) => {
     }
   }, [currentOrgTabs.activeTabId, tab.id]);
 
+  const { updateTabById } = useInsomniaTabContext();
+
+  const handleDoubleClick = () => {
+    if (tab.temporary) {
+      updateTabById?.(tab.id, { temporary: false });
+    }
+  };
+
   return (
     <GridListItem
       textValue={`tab-${tab.name}`}
@@ -130,9 +140,13 @@ export const InsomniaTab = ({ tab }: { tab: BaseTab }) => {
     >
       {({ isSelected, isHovered }) => (
         <Tooltip delay={1000} message={`${tab.projectName} / ${tab.workspaceName}`} className='h-full'>
-          <div onContextMenu={handleContextMenu} className={`relative flex items-center h-full px-[10px] flex-nowrap border-solid border-r border-[--hl-sm] hover:text-[--color-font] outline-none max-w-[200px] cursor-pointer ${(!isSelected && !isHovered) && 'opacity-[0.7]'}`}>
+          <div onDoubleClick={handleDoubleClick} onContextMenu={handleContextMenu} className={`relative flex items-center h-full px-[10px] flex-nowrap border-solid border-r border-[--hl-sm] hover:text-[--color-font] outline-none max-w-[200px] cursor-pointer ${(!isSelected && !isHovered) && 'opacity-[0.7]'}`}>
             {renderTabIcon(tab.type)}
-            <span className='mx-[8px] text-nowrap overflow-hidden text-ellipsis'>{tab.name}</span>
+            <span
+              className={classNames('mx-[8px] text-nowrap overflow-hidden text-ellipsis', {
+                'italic': tab.temporary,
+              })}
+            >{tab.name}</span>
             <Button className='hover:bg-[--hl-md] h-[15px] w-[15px] flex justify-center items-center' onPress={() => handleClose(tab.id)}>
               <Icon icon="close" />
             </Button>
